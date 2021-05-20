@@ -47,15 +47,15 @@ The following are code samples that show common scenario operations with the Azu
   
 ## Prerequisites
 * Python 2.7 or 3.5.3+
-* You must have an [Azure subscription](https://azure.microsoft.com/free/) and an
-[Azure Cosmos DB account](https://docs.microsoft.com/azure/cosmos-db/create-sql-api-python#create-a-database-account) to run these samples.
+- [Azure Subscription][azure_subscription]
+- [Azure Maps Account](https://azure.microsoft.com/en-us/services/azure-maps/).
 
 ## Setup
 
-1. Install the latest beta version of Azure Cosmos that the samples use:
+1. Install the latest beta version of Maps Service that the samples use:
 
 ```bash
-pip install azure-cosmos
+pip install azure-maps-service
 ```
 
 2. Clone or download this sample repository.
@@ -65,9 +65,4 @@ pip install azure-cosmos
 
 1. Open a terminal window and `cd` to the directory that the samples are saved in.
 2. Set the environment variables specified in the sample file you wish to run.
-3. Follow the usage described in the file, e.g. `python database_management.py`
-
-## Next steps
-
-Check out the [API reference documentation](https://aka.ms/azsdk-python-cosmos-ref) to learn more about
-what you can do with the Azure Cosmos DB SQL API client library.
+3. Follow the usage described in the file, e.g. `python examples.py`
