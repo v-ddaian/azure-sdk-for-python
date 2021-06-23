@@ -3,66 +3,43 @@
 # example snippets, take into consideration how this might affect
 # the readability and usability of the reference documentation.
 import argparse
-from typing import List
-from azure.maps.service import operations
+import os
+import re
 
-from azure.maps.service.operations import TilesetOperations
-from azure.maps.service.models import TilesetDetailInfo
+from azure.core.credentials import AzureKeyCredential
+from common.common import AzureKeyInQueryCredentialPolicy
+
 from azure.core.exceptions import HttpResponseError
-from common.common import create_maps_client, get_operation_location_id, wait_for_status_complete
+from azure.maps.creator import CreatorClient
 
+parser = argparse.ArgumentParser(
+    description='Tileset Samples Program. Set SUBSCRIPTION_KEY env variable.')
+parser.add_argument('--dataset_id', action="store", required=True)
+dataset_id = parser.parse_args().dataset_id
 
-def create(tileset: TilesetOperations, dataset_id: str):
-    poller = tileset.begin_create(dataset_id, "Test Description", polling=False)
-    operation_id = get_operation_location_id(poller, "operation-location")
-    print("Created tileset with operation_id {}".format(operation_id))
-    return operation_id
+client = CreatorClient('None', x_ms_client_id=os.environ.get("CLIENT_ID", None), authentication_policy=AzureKeyInQueryCredentialPolicy(
+    AzureKeyCredential(os.environ.get("SUBSCRIPTION_KEY")), "subscription-key"))
 
+(deserialized, headers) = client.tileset.begin_create(dataset_id, "Test Description",
+                                                      cls=lambda _, deserialized, headers: (deserialized, headers)).result()
 
-def delete(tileset: TilesetOperations, tileset_id: str):
-    tileset.delete(tileset_id)
-    print("Deleted tileset with tilesetId {}".format(tileset_id))
+tileset_id = re.search(
+    "[0-9A-Fa-f\-]{36}", headers["Resource-Location"]).group()
 
-
-def get(tileset: TilesetOperations, tileset_id: str):
-    result = tileset.get(tileset_id)
+if deserialized.status != "Succeeded":
+    print("Tileset creation faled")
+    exit(0)
+try:
+    result = client.tileset.get(tileset_id)
     print("Get tileset with tilesetId {}".format(tileset_id))
     print(result)
 
-
-def get_operation(tileset: TilesetOperations, operation_id: str):
-    result = tileset.get_operation(operation_id)
-    print("Get tileset with operation_id {}".format(operation_id))
-    print(result)
-    return result
-
-
-def list(tileset: TilesetOperations):
-    result = tileset.list()
-    tilesets: List[TilesetDetailInfo] = result.tilesets
+    result = client.tileset.list()
     print("View all tilesets:")
-    for tileset_info in tilesets:
+    for tileset_info in result:
         print(tileset_info)
-
-
-def main(dataset_id: str):
-    tileset = create_maps_client().tileset
-    operation_id = create(tileset, dataset_id)
-    tileset_id = wait_for_status_complete(tileset, operation_id, get_operation)
-    if tileset_id is None:
-        print("Tileset creation faled")
-        return
-    try:
-        get(tileset, tileset_id)
-        list(tileset)
-    except HttpResponseError as e:
-        print(e)
-    finally:
-        delete(tileset, tileset_id)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Tileset Samples Program. Set SUBSCRIPTION_KEY env variable.')
-    parser.add_argument('--dataset_id', action="store", required=True)
-    main(parser.parse_args().dataset_id)
+except HttpResponseError as e:
+    print(e)
+finally:
+    client.tileset.delete(tileset_id)
+    print("Deleted tileset with tilesetId {}".format(tileset_id))

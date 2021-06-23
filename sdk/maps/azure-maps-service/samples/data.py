@@ -3,105 +3,65 @@
 # example snippets, take into consideration how this might affect
 # the readability and usability of the reference documentation.
 import argparse
-from typing import List
-import sys
+import os
+import re
+
+from azure.core.credentials import AzureKeyCredential
+from common.common import AzureKeyInQueryCredentialPolicy
 import json
-import zipfile
 
-from azure.maps.service.operations import DataOperations
-from azure.maps.service.models import UploadDataFormat, MapDataListResponse, MapDataDetailInfo
 from azure.core.exceptions import HttpResponseError
-from common.common import create_maps_client, get_operation_location_id, wait_for_status_complete
 
-import gzip
-from io import StringIO, BytesIO
+from azure.maps.creator.models import UploadDataFormat
+from azure.maps.creator import CreatorClient
 
+parser = argparse.ArgumentParser(
+    description='Data Samples Program. Set SUBSCRIPTION_KEY env variable.')
+parser.parse_args()
 
-def upload(data: DataOperations):
-    with open("resources/data_sample_upload.json", "r") as file:
-        poller = data.begin_upload_preview(UploadDataFormat.GEOJSON,
-                                           json.loads(file.read()), "Upload Description", polling=True)
-        operation_id = get_operation_location_id(poller, "operation-location")
-        print("Uploaded file with udid {}".format(operation_id))
-        return operation_id
+client = CreatorClient('None', x_ms_client_id=os.environ.get("CLIENT_ID", None), authentication_policy=AzureKeyInQueryCredentialPolicy(
+    AzureKeyCredential(os.environ.get("SUBSCRIPTION_KEY")), "subscription-key"))
 
+print("Uploading zip file")
+with open("resources/data_sample_upload.zip", "rb") as file:
+    (deserialized, headers) = client.data.begin_upload_preview(UploadDataFormat.DWGZIPPACKAGE,
+                                                               file.read(), "Upload Description", content_type="application/octet-stream",
+                                                               cls=lambda _, deserialized, headers: (deserialized, headers)).result()
+    if deserialized.status != "Succeeded":
+        print("Zip file upload faled")
+        exit(0)
+    udid = re.search("[0-9A-Fa-f\-]{36}", headers["Resource-Location"]).group()
 
-def upload_zip(data: DataOperations):
-    with open("resources/Sample - Contoso Drawing Package.zip", "rb") as file:
-        poller = data.begin_upload_preview(UploadDataFormat.DWGZIPPACKAGE,
-                                           file.read(), "Upload Description", polling=True, content_type="application/octet-stream")
-        operation_id = get_operation_location_id(poller, "operation-location")
-        print("Uploaded file with udid {}".format(operation_id))
-        return operation_id
+    client.data.delete_preview(udid)
 
-
-def update(data: DataOperations, udid: str):
-    with open("resources/data_sample_update.json", "r") as file:
-        poller = data.begin_update_preview(udid, json.loads(file.read()),
-                                           "Update Description")
-        operation_id = get_operation_location_id(poller, "operation-location")
-        print("Updated file with udid {}".format(udid))
-        return operation_id
-
-
-def delete(data: DataOperations, udid: str):
-    data.delete_preview(udid)
-    print("Deleted file with udid {}".format(udid))
-
-
-def download(data: DataOperations, udid: str):
-    fileData = data.download_preview(udid)
-    bytes = bytearray()
-    for line in fileData:
-        bytes.extend(line)
-    print("Downloaded file with udid {}".format(udid))
-    print(bytes)
-
-
-def list(data: DataOperations):
-    result: MapDataListResponse = data.list_preview()
-    files: List[MapDataDetailInfo] = result.map_data_list
-    print("View all uploaded files:")
-    for map_data_detail in files:
-        print(map_data_detail)
-
-
-def get_operation(data: DataOperations, operation_id: str):
-    result = data.get_operation_preview(operation_id)
-    print("Get file with operation_id {}".format(operation_id))
-    print(result)
-    return result
-
-
-def main(do_delete: bool):
-    data = create_maps_client().data
-    operation_id = upload(data)
-    udid = wait_for_status_complete(data, operation_id, get_operation)
-    if udid is None:
-        print("File upload faled")
-        return
-    #operation_id_zip = upload_zip(data)
-    #udid_zip = wait_for_status_complete(data, operation_id_zip, get_operation)
-    #if udid_zip is None:
-    #    print("Zip file upload faled")
-    #    return
+print("Uploading json file")
+with open("resources/data_sample_upload.json", "r") as file:
+    (deserialized, headers) = client.data.begin_upload_preview(UploadDataFormat.GEOJSON,
+                                                               json.load(file), "Upload Description", content_type="application/json",
+                                                               cls=lambda _, deserialized, headers: (deserialized, headers)).result()
+    if deserialized.status != "Succeeded":
+        print("File upload failed")
+        exit(0)
+    udid = re.search("[0-9A-Fa-f\-]{36}", headers["Resource-Location"]).group()
     try:
-        list(data)
-        download(data, udid)
-        operation_id = update(data, udid)
-        if not wait_for_status_complete(data, operation_id, get_operation):
-            print("File update failed")
-            return
+        print("View all uploaded files:")
+        for map_data_detail in client.data.list_preview().map_data_list:
+            print(map_data_detail)
+
+        fileData = client.data.download_preview(udid)
+        bytes = bytearray()
+        for line in fileData:
+            bytes.extend(line)
+        print("Downloaded file with udid {}".format(udid))
+        print(bytes)
+
+        with open("resources/data_sample_update.json", "r") as file:
+            print("Update file with udid {}".format(udid))
+            result = client.data.begin_update_preview(udid, json.load(file),
+                                                      "Update Description").result()
+            print(result.status)
     except HttpResponseError as e:
         print(e)
     finally:
-        if do_delete:
-            delete(data, udid)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Data Samples Program. Set SUBSCRIPTION_KEY env variable.')
-    parser.add_argument('--dont_delete',
-                        action="store_true", default=False)
-    main(not parser.parse_args().dont_delete)
+        client.data.delete_preview(udid)
+        print("Deleted file with udid {}".format(udid))
