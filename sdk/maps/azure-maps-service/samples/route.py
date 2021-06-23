@@ -44,7 +44,7 @@ with open("resources/route_directions_request_body.json") as file:
 
 with open("resources/route_directions_batch_request_body.json") as file:
     poller = client.route.begin_post_route_directions_batch(
-        TextFormat.JSON, json.load(file), polling_interval=5)
+        TextFormat.JSON, json.load(file))
     print("Post route directions batch")
     print(poller.result())
 

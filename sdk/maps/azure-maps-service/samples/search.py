@@ -81,7 +81,7 @@ print(result)
 
 with open("resources/search_address_batch_request_body.json", "r") as file:
     poller = client.search.begin_post_search_address_batch(
-        TextFormat.JSON, json.load(file), polling_interval=5)
+        TextFormat.JSON, json.load(file))
     result = poller.result()
     print("Post Search Address Batch")
     print(result)
@@ -89,7 +89,7 @@ with open("resources/search_address_batch_request_body.json", "r") as file:
 
 with open("resources/search_address_reverse_batch_request_body.json", "r") as file:
     poller = client.search.begin_post_search_address_reverse_batch(
-        TextFormat.JSON, json.load(file), polling_interval=5)
+        TextFormat.JSON, json.load(file))
     result = poller.result()
     print("Post Search Address Reverse Batch")
     print(result)
@@ -97,7 +97,7 @@ with open("resources/search_address_reverse_batch_request_body.json", "r") as fi
 
 with open("resources/search_fuzzy_batch_request_body.json", "r") as file:
     poller = client.search.begin_post_search_fuzzy_batch(
-        TextFormat.JSON, json.load(file), polling_interval=5)
+        TextFormat.JSON, json.load(file))
     result = poller.result()
     print("Post Search Fuzzy Batch")
     print(result)
